@@ -72,11 +72,10 @@ if __name__ == "__main__":
 
     # Load the desired controller
     options["controller_configs"] = load_controller_config(default_controller=controller_name)
-
     env = suite.make(
         **options,
         has_renderer=False if renderer != "mujoco" else True,  # no on-screen renderer
-        has_offscreen_renderer=False,  # no off-screen renderer
+        has_offscreen_renderer=True,  # no off-screen renderer
         ignore_done=True,
         use_camera_obs=False,  # no camera observations
         control_freq=20,
@@ -93,7 +92,6 @@ if __name__ == "__main__":
         for i in range(timesteps):
             action = np.random.uniform(low, high)
             obs, reward, done, _ = env.step(action)
-
             if i % 100 == 0:
                 env.render()
 

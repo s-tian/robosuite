@@ -95,7 +95,7 @@ IMAGE_CONVENTION_MAPPING = {
     "opencv": -1,
 }
 
-TEXTURE_FILES = {
+TEXTURES = {
     "WoodRed": "red-wood.png",
     "WoodGreen": "green-wood.png",
     "WoodBlue": "blue-wood.png",
@@ -117,19 +117,46 @@ TEXTURE_FILES = {
     "Bread": "bread.png",
     "Can": "can.png",
     "Ceramic": "ceramic.png",
-    "Cereal": "cereal.png",
+    #"Cereal": "cereal.png",
     "Clay": "clay.png",
     "Dirt": "dirt.png",
     "Glass": "glass.png",
     "FeltGray": "gray-felt.png",
     "Lemon": "lemon.png",
+
+    # added by Stephen
+    "Brick": "brick-smaller.png",
+    "Tile0": "tiles0.png",
+    "Tile1": "tiles1.png",
+    "Tile2": "tiles2-smaller.png",
+    "Tile3": "tiles3.png",
+    "Tile4": "tiles4.png",
+    "Candy": "candy.png",
+    "XmasOrnament": "xmas-ornament.png",
+    'PaintedPlaster': 'painted-plaster.png',
+    'Rocks': 'rocks-smaller.png',
+    'Chip': 'chip-smaller.png',
+    'Fabric': 'fabric.png',
+    'Fabric2': 'fabric2.png',
 }
 
-TEXTURES = {
-    texture_name: os.path.join("textures", texture_file) for (texture_name, texture_file) in TEXTURE_FILES.items()
+PUSHCENTER_TEXTURES = {
+    "Can": "can.png",
+    "Tile0": "tiles0.png",
+    "Tile1": "tiles1.png",
+    "Tile2": "tiles2.png",
+    "Tile3": "tiles3.png",
+    "Tile4": "tiles4.png",
+    "XmasOrnament": "xmas-ornament.png",
+    'PaintedPlaster': 'painted-plaster.png',
+    'Rocks': 'rocks.png',
+    'Chip': 'chip.png',
+    'Fabric': 'fabric.png',
+    'Fabric2': 'fabric2.png',
+    'Candy': 'candy.png',
 }
 
-ALL_TEXTURES = TEXTURES.keys()
+ALL_TEXTURES = PUSHCENTER_TEXTURES.keys()
 
 
 class CustomMaterial(object):
@@ -212,7 +239,7 @@ class CustomMaterial(object):
         # Handle default and non-default cases separately for linking texture patch file locations
         if not default:
             # Add in the filepath to texture patch
-            self.tex_attrib["file"] = xml_path_completion(TEXTURES[texture])
+            self.tex_attrib["file"] = xml_path_completion("textures/" + TEXTURES[texture])
         else:
             if texture is not None:
                 # Create a texture patch

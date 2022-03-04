@@ -92,7 +92,7 @@ if __name__ == "__main__":
         options["robots"] = choose_robots(exclude_bimanual=True)
 
     # Load the desired controller
-    options["controller_configs"] = load_controller_config(default_controller="OSC_POSE")
+    options["controller_configs"] = load_controller_config(default_controller="OSC_POSITION")
 
     # change renderer config
     config = load_renderer_config("igibson")
@@ -109,6 +109,8 @@ if __name__ == "__main__":
 
     config["camera_obs"] = True
     config["render_mode"] = "headless"
+    config["optimized"] = False 
+    config["render2tensor"] = True 
 
     # import pdb; pdb.set_trace();
 
@@ -119,8 +121,8 @@ if __name__ == "__main__":
         has_offscreen_renderer=True,
         ignore_done=True,
         use_camera_obs=False,
-        control_freq=20,
-        camera_names="frontview",
+        control_freq=5,
+        camera_names="agentview_shift_2",
         camera_segmentations=args.segmentation_level,
         renderer="igibson",
         renderer_config=config,
@@ -135,17 +137,19 @@ if __name__ == "__main__":
     # do visualization
     for i in range(100):
         action = 0.5 * np.random.uniform(low, high)
+        if i < 20:
+            action[2] -= 1
         obs, reward, done, _ = env.step(action)
-
+        view = "agentview_shift_2"
         if args.vision_modality == "rgb":
-            video_img = obs[f"frontview_image"]
+            video_img = obs[f"{view}_image"]
         if args.vision_modality == "depth":
-            video_img = obs[f"frontview_depth"]
+            video_img = obs[f"{view}_depth"]
             video_img = normalize_depth(video_img)
         if args.vision_modality == "normal":
-            video_img = obs[f"frontview_normal"]
+            video_img = obs[f"{view}_normal"]
         if args.vision_modality == "segmentation":
-            video_img = obs[f"frontview_seg"]
+            video_img = obs[f"{view}_seg"]
             # max class count can change w.r.t segmentation type.
             if args.segmentation_level == "element":
                 max_class_count = env.viewer.max_elements

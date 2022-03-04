@@ -31,6 +31,8 @@ if __name__ == "__main__":
         help="Modality to render. Could be set to `depth`, `normal`, `segmentation`, or `rgb`",
     )
 
+    parser.add_argument("--video-path", type=str, default="/tmp/video.mp4", help="Path to video file")
+
     args = parser.parse_args()
 
     options = {}
@@ -81,26 +83,64 @@ if __name__ == "__main__":
     env = suite.make(
         **options,
         has_renderer=False,  # no on-screen renderer
-        has_offscreen_renderer=False,  # no off-screen renderer
+        has_offscreen_renderer=True,  # no off-screen renderer
         ignore_done=True,
         use_camera_obs=False,  # no camera observations
-        control_freq=20,
+        control_freq=5,
         renderer="nvisii",
         renderer_config=config,
         camera_segmentations="element" if config["vision_modalities"] == "segmentation" else None,
     )
 
-    env.reset()
+    # env.reset()
 
+    # low, high = env.action_spec
+
+    # timesteps = 300
+    # for i in range(timesteps):
+    #     action = np.random.uniform(low, high)
+    #     obs, reward, done, _ = env.step(action)
+
+    #     if i % 100 == 0:
+    #         env.render()
+
+    # env.close_renderer()
+    # print("Done.")
+
+    video_writer = imageio.get_writer(args.video_path, fps=20)
+
+    # Get action limits
     low, high = env.action_spec
 
-    timesteps = 300
-    for i in range(timesteps):
-        action = np.random.uniform(low, high)
+    # do visualization
+    for i in range(100):
+        action = 0.5 * np.random.uniform(low, high)
+        if i < 20:
+            action[2] -= 1
         obs, reward, done, _ = env.step(action)
+        view = "agentview_shift_2"
+        if args.vision_modality == "rgb":
+            video_img = obs[f"{view}_image"]
+        if args.vision_modality == "depth":
+            video_img = obs[f"{view}_depth"]
+            video_img = normalize_depth(video_img)
+        if args.vision_modality == "normal":
+            video_img = obs[f"{view}_normal"]
+        if args.vision_modality == "segmentation":
+            video_img = obs[f"{view}_seg"]
+            # max class count can change w.r.t segmentation type.
+            if args.segmentation_level == "element":
+                max_class_count = env.viewer.max_elements
+            if args.segmentation_level == "class":
+                max_class_count = env.viewer.max_elements
+            if args.segmentation_level == "instance":
+                max_class_count = env.viewer.max_elements
+            video_img = segmentation_to_rgb(video_img, max_class_count)
 
-        if i % 100 == 0:
-            env.render()
+        video_writer.append_data(video_img)
 
-    env.close_renderer()
+        if i % 5 == 0:
+            print("Step #{} / 100".format(i))
+
     print("Done.")
+    print(f"Dumped file at location {args.video_path}")
