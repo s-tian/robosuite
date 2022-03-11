@@ -53,14 +53,12 @@ def load_object(
     """
     Function that initializes the meshes in the memory with appropriate materials.
     """
-
     primitive_shapes_path = {
         "box": os.path.join(robosuite.models.assets_root, "objects/meshes/cube.obj"),
         "cylinder": os.path.join(robosuite.models.assets_root, "objects/meshes/cylinder.obj"),
         "sphere": os.path.join(robosuite.models.assets_root, "objects/meshes/sphere8.obj"),
         "plane": os.path.join(robosuite.models.assets_root, "objects/meshes/cube.obj"),
     }
-
     # if not in primitive shapes, get path to mesh
     filename = primitive_shapes_path.get(geom_type)
     if filename is None:
@@ -80,8 +78,10 @@ def load_object(
 
     if geom_type == "mesh":
         scale = geom_scale
-    elif geom_type in ["box", "sphere"]:
+    elif geom_type == "box":
         scale = geom_size * 2
+    elif geom_type == "sphere":
+        scale = [geom_size[0] * 2, geom_size[0] * 2, geom_size[0] * 2]
     elif geom_type == "cylinder":
         scale = [geom_size[0], geom_size[0], geom_size[1]]
     elif geom_type == "plane":

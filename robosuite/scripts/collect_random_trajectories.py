@@ -59,7 +59,6 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration):
     step_num = 0
     action_dim = env.action_dim
     low, high = env.action_spec
-    plan_len = 15 
 
     action_queue = [] 
 
@@ -70,11 +69,20 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration):
 
         # Get the newest action
         if len(action_queue) == 0:
+            print(step_num)
             bias = np.zeros(action_dim)
-            if step_num == 0:
-                bias[2] = -0.5
-            action_queue = sample_actions(plan_len, action_dim, bias)
+            # if step_num == 1:
+            #     bias[2] = -0.5
+            print(bias)
+            std = np.array([1, 1, 0.2, 1])
+            if step_num == 1:
+                plan_len = 6
+            else:
+                plan_len = 12
+            action_queue = sample_actions(plan_len, action_dim, bias, std=std)
             action_queue = np.clip(action_queue, low, high)
+            if step_num == 1:
+                action_queue[:, 2] = -0.7
             action_queue = list(action_queue)
 
         action = action_queue.pop(0)

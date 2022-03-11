@@ -12,7 +12,7 @@ from robosuite.utils.placement_samplers import UniformRandomSampler
 from robosuite.utils.transform_utils import convert_quat
 
 
-class PushCenter(SingleArmEnv):
+class PushCenterMulti(SingleArmEnv):
     """
     This class corresponds to the lifting task for a single robot arm.
 
@@ -236,29 +236,31 @@ class PushCenter(SingleArmEnv):
 
         # sparse completion reward
         if self._check_success():
-            reward = 2.25
+            reward = 4.0
 
         # use a shaping reward
         elif self.reward_shaping:
-            #reaching reward
-            cube_pos = self.sim.data.body_xpos[self.object_body_id]
-            gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
-            dist = np.linalg.norm(gripper_site_pos - cube_pos)
-            reaching_reward = 1 - np.tanh(10.0 * dist)
-            reward += reaching_reward
+            for obj_id in self.object_body_ids:
 
-            # xy distance reward
-            cube_xy = self.sim.data.body_xpos[self.object_body_id][:2]
-            table_xy = self.model.mujoco_arena.table_offset[:2]
-            target = table_xy.copy()
-            target[0] += 0.2
-            # cube is higher than the table top above a margin
-            center_dist = np.linalg.norm(cube_xy - target)
-            reward += 1 - np.tanh(10.0 * center_dist)
+                # reaching reward
+                # cube_pos = self.sim.data.body_xpos[obj_id]
+                # gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
+                # dist = np.linalg.norm(gripper_site_pos - cube_pos)
+                # reaching_reward = 1 - np.tanh(10.0 * dist)
+                # reward += reaching_reward
+
+                # xy distance reward
+                cube_xy = self.sim.data.body_xpos[obj_id][:2]
+                table_xy = self.model.mujoco_arena.table_offset[:2]
+                target = table_xy.copy()
+                target[0] += 0.2
+                # cube is higher than the table top above a margin
+                center_dist = np.linalg.norm(cube_xy - target)
+                reward += 1 - np.tanh(10.0 * center_dist)
 
         # Scale reward if requested
         if self.reward_scale is not None:
-            reward *= self.reward_scale / 2.25
+            reward *= self.reward_scale / 4.0
         return reward
 
     def _load_model(self):
@@ -288,47 +290,87 @@ class PushCenter(SingleArmEnv):
 
         random_shininess = np.random.uniform()
 
-        mat_attrib = {
-            "texrepeat": "1 1",
-            "specular": f"{random_shininess}",
-            "shininess": f"{random_shininess}",
-            "reflectance": f"{random_shininess}",
-        }
         texture_list = list(ALL_TEXTURES)
-        texture = None
-        while not texture or 'Cereal' in texture:
-            texture_rnd_idx = np.random.choice(len(texture_list))
-            texture = texture_list[texture_rnd_idx]
-        redwood = CustomMaterial(
-            texture=texture,
-            tex_name="block_tex",
-            mat_name="block_tex_mat",
-            tex_attrib=tex_attrib,
-            mat_attrib=mat_attrib,
-        )
-        self.object = BoxObject(
+        materials = []
+        for i in range(4):
+            texture = None
+            while not texture or 'Cereal' in texture:
+                texture_rnd_idx = np.random.choice(len(texture_list))
+                texture = texture_list[texture_rnd_idx]
+            mat_attrib = {
+                "texrepeat": "1 1",
+                "specular": f"{random_shininess}",
+                "shininess": f"{random_shininess}",
+                "reflectance": f"{random_shininess}",
+            }
+            mat = CustomMaterial(
+                texture=texture,
+                tex_name="block_tex",
+                mat_name="block_tex_mat",
+                tex_attrib=tex_attrib,
+                mat_attrib=mat_attrib,
+            )
+            materials.append(mat)
+
+        self.box_object = BoxObject(
             name="cube",
             size=[0.06, 0.06, 0.06],
-            density=((0.02/0.06)**3),
+            density=((0.02/0.04)**3),
             #density=0.5,
             #size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
             #size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
             rgba=[1, 0, 0, 0],
-            material=redwood,
+            material=materials[0],
         )
+
+        self.box_object2 = BoxObject(
+            name="cube2",
+            size=[0.04, 0.04, 0.04],
+            density=((0.02/0.04)**3),
+            #density=0.5,
+            #size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
+            #size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
+            rgba=[1, 0, 0, 0],
+            material=materials[3],
+        )
+
+        self.ball_object = BallObject(
+            name="ball",
+            size=[0.07],
+            friction=[0.5, 0.005, 0.0005],
+            density=((0.02 / 0.06) ** 3),
+            # density=0.5,
+            # size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
+            # size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
+            rgba=[1, 0, 0, 0],
+            material=materials[1],
+        )
+
+        self.cylinder_object = CylinderObject(
+            name="cylinder",
+            size=[0.06, 0.06],
+            density=((0.04 / 0.06) ** 3),
+            # density=0.5,
+            # size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
+            # size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
+            rgba=[1, 0, 0, 0],
+            material=materials[2],
+        )
+
+        self.objects = [self.box_object, self.box_object2, self.cylinder_object, self.ball_object]
 
         # Create placement initializer
         if self.placement_initializer is not None:
             #print('Placement initializer specified')
             self.placement_initializer.reset()
-            self.placement_initializer.add_objects(self.object)
+            self.placement_initializer.add_objects(self.objects)
         else:
             print('Using default placement initializer')
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
-                mujoco_objects=self.object,
-                x_range=[-0.10, 0.10],
-                y_range=[-0.10, 0.10],
+                mujoco_objects=self.objects,
+                x_range=[-0.15, 0.15],
+                y_range=[-0.15, 0.15],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
@@ -340,7 +382,7 @@ class PushCenter(SingleArmEnv):
         self.model = ManipulationTask(
             mujoco_arena=mujoco_arena,
             mujoco_robots=[robot.robot_model for robot in self.robots],
-            mujoco_objects=self.object,
+            mujoco_objects=self.objects,
         )
 
     def _setup_references(self):
@@ -352,7 +394,8 @@ class PushCenter(SingleArmEnv):
         super()._setup_references()
 
         # Additional object references from this env
-        self.object_body_id = self.sim.model.body_name2id(self.object.root_body)
+        # self.object_body_id = self.sim.model.body_name2id(self.object.root_body)
+        self.object_body_ids = [self.sim.model.body_name2id(obj.root_body) for obj in self.objects]
 
     def _setup_observables(self):
         """
@@ -372,21 +415,21 @@ class PushCenter(SingleArmEnv):
             # cube-related observables
             @sensor(modality=modality)
             def cube_pos(obs_cache):
-                return np.array(self.sim.data.body_xpos[self.object_body_id])
+                return np.concatenate([np.array(self.sim.data.body_xpos[id]) for id in self.object_body_ids])
 
             @sensor(modality=modality)
             def cube_quat(obs_cache):
-                return convert_quat(np.array(self.sim.data.body_xquat[self.object_body_id]), to="xyzw")
+                return np.concatenate([convert_quat(np.array(self.sim.data.body_xquat[id]), to="xyzw") for id in self.object_body_ids])
 
-            @sensor(modality=modality)
-            def gripper_to_cube_pos(obs_cache):
-                return (
-                    obs_cache[f"{pf}eef_pos"] - obs_cache["cube_pos"]
-                    if f"{pf}eef_pos" in obs_cache and "cube_pos" in obs_cache
-                    else np.zeros(3)
-                )
+            # @sensor(modality=modality)
+            # def gripper_to_cube_pos(obs_cache):
+            #     return (
+            #         obs_cache[f"{pf}eef_pos"] - obs_cache["cube_pos"]
+            #         if f"{pf}eef_pos" in obs_cache and "cube_pos" in obs_cache
+            #         else np.zeros(3)
+            #     )
 
-            sensors = [cube_pos, cube_quat, gripper_to_cube_pos]
+            sensors = [cube_pos, cube_quat]
             names = [s.__name__ for s in sensors]
 
             # Create observables
@@ -429,19 +472,23 @@ class PushCenter(SingleArmEnv):
 
         # Color the gripper visualization site according to its distance to the cube
         if vis_settings["grippers"]:
-            self._visualize_gripper_to_target(gripper=self.robots[0].gripper, target=self.object)
+            self._visualize_gripper_to_target(gripper=self.robots[0].gripper, target=self.objects[0])
 
     def _check_success(self):
         """
-        Check if cube has been lifted.
+        Check if cube has been pushed to center
 
         Returns:
             bool: True if cube has been lifted
         """
-        cube_xy = self.sim.data.body_xpos[self.object_body_id][:2]
-        table_xy = self.model.mujoco_arena.table_offset[:2]
-        target = table_xy.copy()
-        target[0] += 0.2
-        # cube is higher than the table top above a margin
-        center_dist = np.linalg.norm(cube_xy - target)
-        return center_dist < 0.05
+        object_distances = []
+        for obj_id in self.object_body_ids:
+            cube_xy = self.sim.data.body_xpos[obj_id][:2]
+            table_xy = self.model.mujoco_arena.table_offset[:2]
+            target = table_xy.copy()
+            target[0] += 0.2
+            # cube is higher than the table top above a margin
+            center_dist = np.linalg.norm(cube_xy - target)
+            object_distances.append(center_dist)
+        object_distances = np.array(object_distances)
+        return object_distances.min() < 0.05

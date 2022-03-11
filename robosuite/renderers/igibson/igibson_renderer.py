@@ -192,17 +192,18 @@ class iGibsonRenderer(Renderer):
         if self.segmentation_type is not None and "seg" not in self.modes:
             self.modes += ["seg"]
 
-        # background_texture = os.path.join(suite.models.assets_root, "light_maps", "photo_studio_01_2k.hdr")
+        background_texture2 = os.path.join(suite.models.assets_root, "light_maps", "photo_studio_01_2k.hdr")
         # background_texture = os.path.join(igibson.ig_dataset_path, "scenes", "background", "probe_03.hdr")
         # background_texture = os.path.join(igibson.ig_dataset_path, "scenes", "background", "Rs_new.hdr")
-        background_texture = os.path.join(igibson.ig_dataset_path, "scenes", "background", "urban_street_01.jpg")
-        # background_texture = os.path.join(igibson.ig_dataset_path, "scenes", "background", "cannon_4k.hdr")
+        # background_texture = os.path.join(igibson.ig_dataset_path, "scenes", "background", "urban_street_01.jpg")
+        background_texture = os.path.join(igibson.ig_dataset_path, "scenes", "background", "cannon_4k.hdr")
 
         self.mrs = MeshRendererSettings(
             msaa=msaa,
             env_texture_filename=background_texture,
             env_texture_filename2=background_texture,
             env_texture_filename3=background_texture,
+            # light_modulation_map_filename=background_texture2,
             enable_pbr=enable_pbr,
             enable_shadow=enable_shadow,
             optimized=optimized,

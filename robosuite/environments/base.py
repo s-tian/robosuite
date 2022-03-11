@@ -276,7 +276,6 @@ class MujocoEnv(metaclass=EnvMeta):
 
         if self.viewer is not None and self.renderer != "mujoco":
             self.viewer.reset()
-
         observations = (
             self.viewer._get_observations(force_update=True)
             if self.viewer_get_obs

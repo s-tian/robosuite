@@ -3,6 +3,7 @@ from robosuite.environments.base import make
 # Manipulation environments
 from robosuite.environments.manipulation.lift import Lift
 from robosuite.environments.manipulation.push_center import PushCenter
+from robosuite.environments.manipulation.push_center_multi import PushCenterMulti
 from robosuite.environments.manipulation.stack import Stack
 from robosuite.environments.manipulation.nut_assembly import NutAssembly
 from robosuite.environments.manipulation.pick_place import PickPlace
@@ -17,7 +18,7 @@ from robosuite.controllers import ALL_CONTROLLERS, load_controller_config
 from robosuite.robots import ALL_ROBOTS
 from robosuite.models.grippers import ALL_GRIPPERS
 
-__version__ = "1.3.1"
+__version__ = "1.3.0"
 __logo__ = """
       ;     /        ,--.
      ["]   ["]  ,<  |__**|

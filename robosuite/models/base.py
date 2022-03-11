@@ -141,7 +141,6 @@ class MujocoXML(object):
             string.write(ET.tostring(self.root, encoding="unicode"))
             if mode == "mujoco_py":
                 from mujoco_py import load_model_from_xml
-
                 model = load_model_from_xml(string.getvalue())
                 return model
             raise ValueError("Unkown model mode: {}. Available options are: {}".format(mode, ",".join(available_modes)))
