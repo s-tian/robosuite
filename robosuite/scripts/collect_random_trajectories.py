@@ -211,7 +211,8 @@ if __name__ == "__main__":
                         help="Specified environment configuration if necessary")
     parser.add_argument("--arm", type=str, default="right", help="Which arm to control (eg bimanual) 'right' or 'left'")
     parser.add_argument("--camera", type=str, default="agentview", help="Which camera to use for collecting demos")
-    parser.add_argument("--env-like", type=str, 
+    parser.add_argument("--out-dir", type=str, default="", help="Out dir to save demo.hdf5 file in")
+    parser.add_argument("--env-like", type=str,
                         help="Dataset file to create env based on")
 
     parser.add_argument("--controller", type=str, default="OSC_POSE",
@@ -289,8 +290,12 @@ if __name__ == "__main__":
     env = DataCollectionWrapper(env, tmp_directory)
 
     # make a new timestamped directory
-    t1, t2 = str(time.time()).split(".")
-    new_dir = os.path.join(args.directory, "{}_{}".format(t1, t2))
+    if args.out_dir:
+        new_dir = os.path.join(args.directory, args.out_dir)
+    else:
+        t1, t2 = str(time.time()).split(".")
+        new_dir = os.path.join(args.directory, "{}_{}".format(t1, t2))
+
     os.makedirs(new_dir)
     # collect demonstrations
     for i in range(args.num_trajs):
