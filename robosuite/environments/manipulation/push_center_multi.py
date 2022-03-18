@@ -9,7 +9,7 @@ from robosuite.models.tasks import ManipulationTask
 from robosuite.utils.mjcf_utils import CustomMaterial, ALL_TEXTURES
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
-from robosuite.utils.transform_utils import convert_quat
+from robosuite.utils.transform_utils import convert_quat, mat2euler
 
 
 class PushCenterMulti(SingleArmEnv):
@@ -146,6 +146,7 @@ class PushCenterMulti(SingleArmEnv):
         use_object_obs=True,
         reward_scale=1.0,
         reward_shaping=False,
+        reward_function='push_center',
         placement_initializer=None,
         has_renderer=False,
         has_offscreen_renderer=True,
@@ -179,6 +180,8 @@ class PushCenterMulti(SingleArmEnv):
 
         # object placement initializer
         self.placement_initializer = placement_initializer
+
+        self.reward_function = reward_function
 
         super().__init__(
             robots=robots,
@@ -234,34 +237,63 @@ class PushCenterMulti(SingleArmEnv):
         """
         reward = 0.0
 
-        # sparse completion reward
-        if self._check_success():
-            reward = 4.0
+        if self.reward_function == 'push_center':
+            # sparse completion reward
+            if self._check_success():
+                reward = 4.0
+            # use a shaping reward
+            elif self.reward_shaping:
+                for obj_id in self.object_body_ids:
 
-        # use a shaping reward
-        elif self.reward_shaping:
-            for obj_id in self.object_body_ids:
+                    # reaching reward
+                    # cube_pos = self.sim.data.body_xpos[obj_id]
+                    # gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
+                    # dist = np.linalg.norm(gripper_site_pos - cube_pos)
+                    # reaching_reward = 1 - np.tanh(10.0 * dist)
+                    # reward += reaching_reward
 
-                # reaching reward
-                # cube_pos = self.sim.data.body_xpos[obj_id]
-                # gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
-                # dist = np.linalg.norm(gripper_site_pos - cube_pos)
-                # reaching_reward = 1 - np.tanh(10.0 * dist)
-                # reward += reaching_reward
+                    # xy distance reward
+                    cube_xy = self.sim.data.body_xpos[obj_id][:2]
+                    table_xy = self.model.mujoco_arena.table_offset[:2]
+                    target = table_xy.copy()
+                    target[0] += 0.2
+                    # cube is higher than the table top above a margin
+                    center_dist = np.linalg.norm(cube_xy - target)
+                    reward += 1 - np.tanh(10.0 * center_dist)
 
-                # xy distance reward
-                cube_xy = self.sim.data.body_xpos[obj_id][:2]
-                table_xy = self.model.mujoco_arena.table_offset[:2]
-                target = table_xy.copy()
-                target[0] += 0.2
-                # cube is higher than the table top above a margin
-                center_dist = np.linalg.norm(cube_xy - target)
-                reward += 1 - np.tanh(10.0 * center_dist)
+            # Scale reward if requested
+            if self.reward_scale is not None:
+                reward *= self.reward_scale / 4.0
 
-        # Scale reward if requested
-        if self.reward_scale is not None:
-            reward *= self.reward_scale / 4.0
+        elif self.reward_function == 'tip_cylinder':
+            if self._check_success():
+                reward = 2.0
+            elif self.reward_shaping:
+                reward += 1 - self.get_cylinder_verticality()
+                cylinder_id = self.sim.model.body_name2id(self.objects[2].root_body)
+                cylinder_pos = self.sim.data.body_xpos[cylinder_id]
+                gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
+                dist = np.linalg.norm(cylinder_pos - gripper_site_pos)
+                reaching_reward = 1 - np.tanh(10.0 * dist)
+                reward += reaching_reward
+            # print(z_value)
+            # if self.reward_shaping:
+            if self.reward_scale is not None:
+                reward *= self.reward_scale / 2.0
+        else:
+            raise NotImplementedError
+        print(reward)
         return reward
+
+    def get_cylinder_verticality(self):
+        # cylinder is object index 2 in self.objects
+        cylinder_id = self.sim.model.body_name2id(self.objects[2].root_body)
+        # print(self.sim.data.body_xmat[cylinder_id])
+        rot_mat = self.sim.data.body_xmat[cylinder_id]
+        # the result of z^TRz, where z = [0, 0, 1], represents how aligned the normal from the circular face
+        # is with the unit vector in the z direction. The closer to 0 it is, the flatter the cylinder is.
+        zRz = rot_mat[-1]
+        return np.abs(zRz)
 
     def _load_model(self):
         """
@@ -481,14 +513,17 @@ class PushCenterMulti(SingleArmEnv):
         Returns:
             bool: True if cube has been lifted
         """
-        object_distances = []
-        for obj_id in self.object_body_ids:
-            cube_xy = self.sim.data.body_xpos[obj_id][:2]
-            table_xy = self.model.mujoco_arena.table_offset[:2]
-            target = table_xy.copy()
-            target[0] += 0.2
-            # cube is higher than the table top above a margin
-            center_dist = np.linalg.norm(cube_xy - target)
-            object_distances.append(center_dist)
-        object_distances = np.array(object_distances)
-        return object_distances.min() < 0.05
+        if self.reward_function == 'push_center':
+            object_distances = []
+            for obj_id in self.object_body_ids:
+                cube_xy = self.sim.data.body_xpos[obj_id][:2]
+                table_xy = self.model.mujoco_arena.table_offset[:2]
+                target = table_xy.copy()
+                target[0] += 0.2
+                # cube is higher than the table top above a margin
+                center_dist = np.linalg.norm(cube_xy - target)
+                object_distances.append(center_dist)
+            object_distances = np.array(object_distances)
+            return object_distances.min() < 0.05
+        elif self.reward_function == 'tip_cylinder':
+            return self.get_cylinder_verticality() < 0.05

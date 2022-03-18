@@ -212,6 +212,7 @@ if __name__ == "__main__":
         ignore_done=True,
         use_camera_obs=False,
         reward_shaping=True,
+        reward_function='tip_cylinder',
         control_freq=5,
     )
 
