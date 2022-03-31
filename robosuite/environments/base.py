@@ -250,7 +250,6 @@ class MujocoEnv(metaclass=EnvMeta):
         """
         # TODO(yukez): investigate black screen of death
         # Use hard reset if requested
-
         if self.hard_reset and not self.deterministic_reset:
             if self.renderer == "mujoco" or self.renderer == "default":
                 self._destroy_viewer()
@@ -273,7 +272,6 @@ class MujocoEnv(metaclass=EnvMeta):
                 self.modify_observable(observable_name=obs_name, attribute="sensor", modifier=obs._sensor)
         # Make sure that all sites are toggled OFF by default
         self.visualize(vis_settings={vis: False for vis in self._visualizations})
-
         if self.viewer is not None and self.renderer != "mujoco":
             self.viewer.reset()
         observations = (
@@ -387,6 +385,7 @@ class MujocoEnv(metaclass=EnvMeta):
         Raises:
             ValueError: [Steps past episode termination]
         """
+        print('ACTION RECEIVED BY ENV', action)
         if self.done:
             raise ValueError("executing action in terminated episode")
 
@@ -525,7 +524,7 @@ class MujocoEnv(metaclass=EnvMeta):
         """
 
         # if there is an active viewer window, destroy it
-        if self.renderer != "nvisii":
+        if self.renderer not in ["nvisii", "igibson"]:
             self.close()
 
         # Since we are reloading from an xml_string, we are deterministically resetting

@@ -33,7 +33,15 @@ def sample_actions(time_steps, a_dim, bias, beta=0.5, std=1):
     return noise_samples
 
 
-def collect_random_trajectory(env, max_steps, arm, env_configuration):
+def normalize(v):
+    return v / np.linalg.norm(v)
+
+
+def within_bounds(v):
+    return -0.4 < v[0] < 0.4 and -0.4 < v[1] < 0.4
+
+
+def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_condition):
     """
     Use the device (keyboard or SpaceNav 3D mouse) to collect a demonstration.
     The rollout trajectory is saved to files in npz format.
@@ -60,6 +68,34 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration):
     action_dim = env.action_dim
     low, high = env.action_spec
 
+    obj_positions = [env.get_object_positions()]
+
+    target_object = np.random.randint(0, 4)
+    print(f'target object {target_object}')
+    direction_vector = np.random.rand(2)
+    direction_vector[0] = np.abs(direction_vector[0])
+    direction_vector = direction_vector / np.linalg.norm(direction_vector)
+    target_object_position = obj_positions[-1][target_object][:2] + 0.3 * direction_vector
+    num_times_checked = 1
+    # while not within_bounds(target_object_position):
+    #     if num_times_checked > 50:
+    #         target_object = np.random.randint(0, 4)
+    #         direction_vector = np.random.rand(2)
+    #         direction_vector[0] = np.abs(direction_vector[0])
+    #         direction_vector = direction_vector / np.linalg.norm(direction_vector)
+    #         target_object_position = obj_positions[-1][target_object][:2] + 0 * direction_vector
+    #         break
+    #     else:
+    #         num_times_checked += 1
+    #         target_object = np.random.randint(0, 4)
+    #         direction_vector = np.random.rand(2)
+    #         direction_vector[0] = np.abs(direction_vector[0])
+    #         direction_vector = direction_vector / np.linalg.norm(direction_vector)
+    #         target_object_position = obj_positions[-1][target_object][:2] + 0.3 * direction_vector
+    initial_location = obj_positions[-1][target_object][:2]
+    print(f'initial location {obj_positions[-1][target_object][:2]}')
+    print(f'target location {target_object_position}')
+
     action_queue = [] 
 
     while step_num < max_steps:
@@ -69,49 +105,107 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration):
 
         # Get the newest action
         if len(action_queue) == 0:
-            print(step_num)
             bias = np.zeros(action_dim)
             # if step_num == 1:
             #     bias[2] = -0.5
-            print(bias)
-            std = np.array([1, 1, 0.2, 1])
+            # print(bias)
+            std = np.array([0.5, 0.5, 0.1, 1])
+            control_freq = env.env.control_freq
             if step_num == 1:
-                plan_len = 6
+                plan_len = 6 if control_freq == 5 else 3
             else:
-                plan_len = 12
-            action_queue = sample_actions(plan_len, action_dim, bias, std=std)
-            action_queue = np.clip(action_queue, low, high)
-            if step_num == 1:
-                action_queue[:, 2] = -0.7
+                plan_len = 12 if control_freq == 5 else 8
+            gain = 7
+            print(f'---- step num {step_num} -----')
+            if 0 < step_num < 10:
+                current_object_position = obj_positions[-1][target_object][:2]
+                print('current object position', current_object_position)
+                target_arm_position = current_object_position + 0.175 * normalize(current_object_position - target_object_position)
+                print('target arm position', target_arm_position)
+                current_arm_position = env.env.get_gripper_pos()[:2]
+                print('current arm position', current_arm_position)
+                bias[:2] = (target_arm_position - current_arm_position) * gain
+                print('bias', bias[:2])
+                action_queue = sample_actions(1, action_dim, bias, std=np.array([0.0, 0.0, 0.0, 1]))
+                action_queue = np.clip(action_queue, low, high)
+            elif step_num > 1:
+                current_arm_position = env.env.get_gripper_pos()[:2]
+                print('current arm position', current_arm_position)
+                current_object_position = obj_positions[-1][target_object][:2]
+                print('current object position', current_object_position)
+                print('target object position', target_object_position)
+                bias[:2] = (target_object_position - current_arm_position) * 5
+                # bias[:2] = normalize((current_object_position - current_arm_position)) * 2
+                print('bias', bias[:2])
+                action_queue = sample_actions(1, action_dim, bias, std=np.array([0.00, 0.00, 0.0, 1]))
+                action_queue = np.clip(action_queue, low, high)
+
+            if 1 < step_num < 3 or 10 < step_num < 16:
+                # action_queue = sample_actions(plan_len, action_dim, bias, std=std)
+                # print(action_queue)
+                current_arm_position = env.env.get_gripper_pos()
+                if current_arm_position[2] > 0.86:
+                    print(current_arm_position[2])
+                    action_queue[:, 2] = -1 + np.random.randn(1) * 0.005
+                    action_queue[:, 0] = np.random.randn(1) * 0.05
+                    action_queue[:, 1] = np.random.randn(1) * 0.05
+                action_queue = np.clip(action_queue, low, high)
+
             action_queue = list(action_queue)
 
         action = action_queue.pop(0)
-        print(action)
+        # print(action)
         
         # If action is none, then this a reset so we should break
         if action is None:
             break
 
         # Run environment step
-        env.step(action)
+        obs, rew, _, _ = env.step(action)
         #env.render()
+        obj_positions.append(env.get_object_positions())
 
         # Also break if we complete the task
         if task_completion_hold_count == 0:
             break
 
-        # state machine to check for having a success for 10 consecutive timesteps
-        if env._check_success():
-            if task_completion_hold_count > 0:
-                task_completion_hold_count -= 1  # latched state, decrement count
-            else:
-                task_completion_hold_count = 10  # reset count on first success timestep
-        else:
-            task_completion_hold_count = -1  # null the counter if there's no success
+        # # state machine to check for having a success for 10 consecutive timesteps
+        # if env._check_success():
+        #     if task_completion_hold_count > 0:
+        #         task_completion_hold_count -= 1  # latched state, decrement count
+        #     else:
+        #         task_completion_hold_count = 10  # reset count on first success timestep
+        # else:
+        #     task_completion_hold_count = -1  # null the counter if there's no success
 
+    print(f'final location {obj_positions[-1][target_object][:2]}')
+    print(f'DISTANCE {np.linalg.norm(initial_location - obj_positions[-1][target_object][:2])}')
     # cleanup for end of data collection episodes
+    take_trajectory = filter_condition(obj_positions, target_object)
+    if not take_trajectory:
+        env.ep_directory = os.path.join("/viscam/u/stian/tmp/bad_trajs", "bad_traj")
     env.close()
+    return take_trajectory
 
+
+def filter_object_motion(obj_positions, target_object):
+    # we take up to the -1 index because the ball often moves really easily, and we want other object motion
+    init_obj_positions = obj_positions[0]
+    final_obj_positions = obj_positions[-1]
+    # iterate over initial and final position for each object
+    object_distances = []
+    y_motion = []
+    for i, (init_p, final_p) in enumerate(zip(init_obj_positions, final_obj_positions)):
+        # make sure it didn't fall off the table
+        if np.abs(init_p[2] - final_p[2]) > 0.5:
+            return False
+        if i != 3 or target_object == 3:
+            object_distances.append(np.linalg.norm(init_p[:2] - final_p[:2]))
+            y_motion.append(np.abs(init_p[1] - final_p[1]))
+    print(np.max(object_distances))
+    if np.max(object_distances) > 0.08:
+        return True
+    return False
 
 def gather_demonstrations_as_hdf5(directory, out_dir, env_info):
     """
@@ -219,11 +313,10 @@ if __name__ == "__main__":
                         help="Choice of controller.'")
     parser.add_argument("--max-steps", type=int, default=150)
     parser.add_argument("--num-trajs", type=int, default=100)
-    parser.add_argument("--control-freq", type=int, default=20)
+    parser.add_argument("--control-freq", type=float, default=20)
     parser.add_argument("--pos-sensitivity", type=float, default=1.0, help="How much to scale position user inputs")
     parser.add_argument("--rot-sensitivity", type=float, default=1.0, help="How much to scale rotation user inputs")
     args = parser.parse_args()
-
 
     # Create argument configuration
     config = {
@@ -298,7 +391,11 @@ if __name__ == "__main__":
 
     os.makedirs(new_dir)
     # collect demonstrations
-    for i in range(args.num_trajs):
-        collect_random_trajectory(env, args.max_steps, args.arm, args.config)
-        if i % 500 == 0 or i == args.num_trajs-1:
+    successful_trajectories = 0
+    while successful_trajectories < args.num_trajs:
+        take_trajectory = collect_random_trajectory(env, args.max_steps, args.arm, args.config, filter_object_motion)
+        if take_trajectory:
+            successful_trajectories += 1
+        print(successful_trajectories)
+        if successful_trajectories % 500 == 1 or successful_trajectories == args.num_trajs-1:
             gather_demonstrations_as_hdf5(tmp_directory, new_dir, env_info)

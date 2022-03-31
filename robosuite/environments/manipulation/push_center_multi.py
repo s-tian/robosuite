@@ -182,6 +182,7 @@ class PushCenterMulti(SingleArmEnv):
         self.placement_initializer = placement_initializer
 
         self.reward_function = reward_function
+        print(f'Using reward function {self.reward_function}!')
 
         super().__init__(
             robots=robots,
@@ -282,8 +283,17 @@ class PushCenterMulti(SingleArmEnv):
                 reward *= self.reward_scale / 2.0
         else:
             raise NotImplementedError
-        print(reward)
         return reward
+
+    def get_object_positions(self):
+        positions = []
+        for obj_id in self.object_body_ids:
+            positions.append(np.copy(self.sim.data.body_xpos[obj_id][:3]))
+        return positions
+
+    def get_gripper_pos(self):
+        gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
+        return np.copy(gripper_site_pos)
 
     def get_cylinder_verticality(self):
         # cylinder is object index 2 in self.objects
@@ -347,22 +357,28 @@ class PushCenterMulti(SingleArmEnv):
         self.box_object = BoxObject(
             name="cube",
             size=[0.06, 0.06, 0.06],
-            density=((0.02/0.04)**3),
+            # density=((0.04/0.04)**3),
+            density=1000,
             #density=0.5,
             #size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
             #size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
             rgba=[1, 0, 0, 0],
+            # solimp=[0.97, 0.990, 0.001, 0.5, 1],
+            # solref=[0.02, 10],
+            # solref=[-5000.0, -100.0],
             material=materials[0],
         )
 
         self.box_object2 = BoxObject(
             name="cube2",
             size=[0.04, 0.04, 0.04],
-            density=((0.02/0.04)**3),
+            # density=((0.02/0.04)**3),
+            density=1000,
             #density=0.5,
             #size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
             #size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
             rgba=[1, 0, 0, 0],
+            # solref=[-5000.0, -100.0],
             material=materials[3],
         )
 
@@ -370,22 +386,26 @@ class PushCenterMulti(SingleArmEnv):
             name="ball",
             size=[0.07],
             friction=[0.5, 0.005, 0.0005],
-            density=((0.02 / 0.06) ** 3),
+            # density=((0.02 / 0.06) ** 3),
+            density=1000,
             # density=0.5,
             # size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
             # size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
             rgba=[1, 0, 0, 0],
+            # solref=[-5000.0, -100.0],
             material=materials[1],
         )
 
         self.cylinder_object = CylinderObject(
             name="cylinder",
             size=[0.06, 0.06],
-            density=((0.04 / 0.06) ** 3),
+            # density=((0.04 / 0.06) ** 3),
+            density=1000,
             # density=0.5,
             # size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
             # size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
             rgba=[1, 0, 0, 0],
+            # solref=[-5000.0, -100.0],
             material=materials[2],
         )
 
@@ -401,7 +421,7 @@ class PushCenterMulti(SingleArmEnv):
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
                 mujoco_objects=self.objects,
-                x_range=[-0.15, 0.15],
+                x_range=[-0.1, 0.3],
                 y_range=[-0.15, 0.15],
                 rotation=None,
                 ensure_object_boundary_in_range=False,

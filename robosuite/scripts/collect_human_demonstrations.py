@@ -60,9 +60,10 @@ def collect_human_trajectory(env, device, arm, env_configuration):
         if action is None:
             print('action is none')
             break
-
+        print(action)
         # Run environment step
         env.step(action)
+        print(env.env.env.get_gripper_pos())
         env.render()
 
         # Also break if we complete the task
@@ -213,7 +214,7 @@ if __name__ == "__main__":
         use_camera_obs=False,
         reward_shaping=True,
         reward_function='tip_cylinder',
-        control_freq=5,
+        control_freq=2,
     )
 
     # Wrap this with visualization wrapper
