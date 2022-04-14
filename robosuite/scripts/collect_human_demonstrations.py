@@ -43,11 +43,14 @@ def collect_human_trajectory(env, device, arm, env_configuration):
 
     is_first = True
 
+    total_step_num = 50
+
     task_completion_hold_count = -1  # counter to collect 10 timesteps after reaching goal
     device.start_control()
 
+    step = 0
     # Loop until we get a reset from the input or the task completes
-    while True:
+    while step < total_step_num:
         # Set active robot
         active_robot = env.robots[0] if env_configuration == "bimanual" else env.robots[arm == "left"]
 
@@ -55,20 +58,24 @@ def collect_human_trajectory(env, device, arm, env_configuration):
         action, grasp = input2action(
             device=device, robot=active_robot, active_arm=arm, env_configuration=env_configuration
         )
-
         # If action is none, then this a reset so we should break
         if action is None:
             print('action is none')
             break
-        print(action)
+
+        if action[:3].sum() == 0:
+            env.render()
+            continue
+        step += 1
+        print(f'step {step}, {action}')
         # Run environment step
         env.step(action)
         print(env.env.env.get_gripper_pos())
         env.render()
 
         # Also break if we complete the task
-        if task_completion_hold_count == 0:
-            break
+        # if task_completion_hold_count == 0:
+        #     break
 
         # state machine to check for having a success for 10 consecutive timesteps
         if env._check_success():
@@ -80,7 +87,11 @@ def collect_human_trajectory(env, device, arm, env_configuration):
             task_completion_hold_count = -1  # null the counter if there's no success
 
     # cleanup for end of data collection episodes
+    take_trajectory = input('take_trajectory?').lower() == 'y'
+    if not take_trajectory:
+        env.ep_directory = os.path.join("bad_trajs", "bad_traj")
     env.close()
+    return take_trajectory
 
 
 def gather_demonstrations_as_hdf5(directory, out_dir, env_info):
@@ -188,6 +199,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="keyboard")
     parser.add_argument("--pos-sensitivity", type=float, default=1.0, help="How much to scale position user inputs")
     parser.add_argument("--rot-sensitivity", type=float, default=1.0, help="How much to scale rotation user inputs")
+    parser.add_argument("--num-trajs", type=int, default=100)
     args = parser.parse_args()
 
     # Get controller config
@@ -214,7 +226,7 @@ if __name__ == "__main__":
         use_camera_obs=False,
         reward_shaping=True,
         reward_function='tip_cylinder',
-        control_freq=2,
+        control_freq=5,
     )
 
     # Wrap this with visualization wrapper
@@ -248,6 +260,12 @@ if __name__ == "__main__":
     os.makedirs(new_dir)
 
     # collect demonstrations
-    while True:
-        collect_human_trajectory(env, device, args.arm, args.config)
-        gather_demonstrations_as_hdf5(tmp_directory, new_dir, env_info)
+    successful_trajectories = 0
+
+    while successful_trajectories < args.num_trajs:
+        take_trajectory = collect_human_trajectory(env, device, args.arm, args.config)
+        if take_trajectory:
+            successful_trajectories += 1
+        print('total so far', successful_trajectories)
+        if successful_trajectories > 0:
+            gather_demonstrations_as_hdf5(tmp_directory, new_dir, env_info)

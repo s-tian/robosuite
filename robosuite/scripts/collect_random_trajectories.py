@@ -41,7 +41,7 @@ def within_bounds(v):
     return -0.4 < v[0] < 0.4 and -0.4 < v[1] < 0.4
 
 
-def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_condition):
+def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_condition, target_object):
     """
     Use the device (keyboard or SpaceNav 3D mouse) to collect a demonstration.
     The rollout trajectory is saved to files in npz format.
@@ -70,10 +70,12 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
 
     obj_positions = [env.get_object_positions()]
 
-    target_object = np.random.randint(0, 4)
+    # target_object = np.random.randint(0, 4)
     print(f'target object {target_object}')
-    direction_vector = np.random.rand(2)
-    direction_vector[0] = np.abs(direction_vector[0])
+    # Generate a random vector uniformly on the half circle with positive x values
+    angle = np.random.rand() * np.pi
+    direction_vector = np.array([np.sin(angle), np.cos(angle)])
+    # direction_vector[0] = np.abs(direction_vector[0])
     direction_vector = direction_vector / np.linalg.norm(direction_vector)
     target_object_position = obj_positions[-1][target_object][:2] + 0.3 * direction_vector
     num_times_checked = 1
@@ -96,7 +98,8 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
     print(f'initial location {obj_positions[-1][target_object][:2]}')
     print(f'target location {target_object_position}')
 
-    action_queue = [] 
+    action_queue = []
+    img_observations = []
 
     while step_num < max_steps:
         step_num += 1
@@ -109,7 +112,7 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
             # if step_num == 1:
             #     bias[2] = -0.5
             # print(bias)
-            std = np.array([0.5, 0.5, 0.1, 1])
+            std = np.array([0.05, 0.05, 0.05, 0])
             control_freq = env.env.control_freq
             if step_num == 1:
                 plan_len = 6 if control_freq == 5 else 3
@@ -126,7 +129,8 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
                 print('current arm position', current_arm_position)
                 bias[:2] = (target_arm_position - current_arm_position) * gain
                 print('bias', bias[:2])
-                action_queue = sample_actions(1, action_dim, bias, std=np.array([0.0, 0.0, 0.0, 1]))
+                action_queue = sample_actions(1, action_dim, bias, std=np.array([0.0, 0.0, 0.0, 0]))
+                action_queue = action_queue + np.random.randn(*action_queue.shape) * std
                 action_queue = np.clip(action_queue, low, high)
             elif step_num > 1:
                 current_arm_position = env.env.get_gripper_pos()[:2]
@@ -134,17 +138,17 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
                 current_object_position = obj_positions[-1][target_object][:2]
                 print('current object position', current_object_position)
                 print('target object position', target_object_position)
-                bias[:2] = (target_object_position - current_arm_position) * 5
+                bias[:2] = (target_object_position - current_object_position) * 5
                 # bias[:2] = normalize((current_object_position - current_arm_position)) * 2
                 print('bias', bias[:2])
-                action_queue = sample_actions(1, action_dim, bias, std=np.array([0.00, 0.00, 0.0, 1]))
+                action_queue = sample_actions(1, action_dim, bias, std=np.array([0.00, 0.00, 0.0, 0]))
+                action_queue = action_queue + np.random.randn(*action_queue.shape) * std
                 action_queue = np.clip(action_queue, low, high)
-
             if 1 < step_num < 3 or 10 < step_num < 16:
                 # action_queue = sample_actions(plan_len, action_dim, bias, std=std)
                 # print(action_queue)
                 current_arm_position = env.env.get_gripper_pos()
-                if current_arm_position[2] > 0.86:
+                if current_arm_position[2] > 0.83:
                     print(current_arm_position[2])
                     action_queue[:, 2] = -1 + np.random.randn(1) * 0.005
                     action_queue[:, 0] = np.random.randn(1) * 0.05
@@ -162,6 +166,7 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
 
         # Run environment step
         obs, rew, _, _ = env.step(action)
+        # img_observations.append(obs['agentview_image'][::-1])
         #env.render()
         obj_positions.append(env.get_object_positions())
 
@@ -181,11 +186,22 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
     print(f'final location {obj_positions[-1][target_object][:2]}')
     print(f'DISTANCE {np.linalg.norm(initial_location - obj_positions[-1][target_object][:2])}')
     # cleanup for end of data collection episodes
+
     take_trajectory = filter_condition(obj_positions, target_object)
+    # take_trajectory = take_trajectory and manual_inspection(img_observations)
     if not take_trajectory:
         env.ep_directory = os.path.join("/viscam/u/stian/tmp/bad_trajs", "bad_traj")
     env.close()
     return take_trajectory
+
+
+def manual_inspection(img_observations):
+    from fitvid.utils import save_moviepy_gif
+    save_moviepy_gif(img_observations, 'img_observations')
+    if input('okay?').lower() == 'y':
+        return True
+    else:
+        return False
 
 
 def filter_object_motion(obj_positions, target_object):
@@ -337,7 +353,8 @@ if __name__ == "__main__":
         env = suite.make(
             **config,
             has_renderer=False,
-            has_offscreen_renderer=True,
+            # has_offscreen_renderer=True,
+            has_offscreen_renderer=False,
             render_camera=args.camera,
             ignore_done=True,
             use_camera_obs=False,
@@ -347,20 +364,6 @@ if __name__ == "__main__":
         )
         env_info = json.dumps(config)
     else:
-
-        # env = suite.make(
-        #     **config,
-        #     has_renderer=False,
-        #     has_offscreen_renderer=False,
-        #     render_camera=args.camera,
-        #     ignore_done=True,
-        #     use_camera_obs=False,
-        #     reward_shaping=True,
-        #     control_freq=20,
-        #     controller_configs=load_controller_config(default_controller="OSC_POSITION")
-        # )
-        # env_info = json.dumps(config)
-
         env_meta = get_env_metadata_from_dataset(args.env_like)
         if args.controller:
             print(f'!!! Overriding controller to {args.controller}!')
@@ -389,13 +392,15 @@ if __name__ == "__main__":
         t1, t2 = str(time.time()).split(".")
         new_dir = os.path.join(args.directory, "{}_{}".format(t1, t2))
 
-    os.makedirs(new_dir)
+    os.makedirs(new_dir, exist_ok=True)
     # collect demonstrations
     successful_trajectories = 0
+    object_target = 0
     while successful_trajectories < args.num_trajs:
-        take_trajectory = collect_random_trajectory(env, args.max_steps, args.arm, args.config, filter_object_motion)
+        take_trajectory = collect_random_trajectory(env, args.max_steps, args.arm, args.config, filter_object_motion, object_target)
         if take_trajectory:
             successful_trajectories += 1
+            object_target = (object_target + 1) % 4
         print(successful_trajectories)
         if successful_trajectories % 500 == 1 or successful_trajectories == args.num_trajs-1:
             gather_demonstrations_as_hdf5(tmp_directory, new_dir, env_info)

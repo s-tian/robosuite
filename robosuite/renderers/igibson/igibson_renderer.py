@@ -294,7 +294,6 @@ class iGibsonRenderer(Renderer):
             # Switch to correct camera
             if self is not None and self.camera_name != cam_name:
                 self._switch_camera(cam_name)
-
             rendered_imgs = self.renderer.render(modes=self.modes)
             rendered_mapping = {k: val for k, val in zip(self.modes, rendered_imgs)}
 

@@ -710,6 +710,7 @@ class PrimitiveObject(MujocoGeneratedObject):
             col_element_attr = deepcopy(element_attr)
             col_element_attr.update(self.get_collision_attrib_template())
             col_element_attr["density"] = str(self.density)
+            col_element_attr["priority"] = 1
             col_element_attr["friction"] = array_to_string(self.friction)
             col_element_attr["solref"] = array_to_string(self.solref)
             col_element_attr["solimp"] = array_to_string(self.solimp)

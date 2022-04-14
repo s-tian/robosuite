@@ -385,7 +385,6 @@ class MujocoEnv(metaclass=EnvMeta):
         Raises:
             ValueError: [Steps past episode termination]
         """
-        print('ACTION RECEIVED BY ENV', action)
         if self.done:
             raise ValueError("executing action in terminated episode")
 
@@ -525,6 +524,7 @@ class MujocoEnv(metaclass=EnvMeta):
 
         # if there is an active viewer window, destroy it
         if self.renderer not in ["nvisii", "igibson"]:
+        # if self.renderer != "nvisii":
             self.close()
 
         # Since we are reloading from an xml_string, we are deterministically resetting

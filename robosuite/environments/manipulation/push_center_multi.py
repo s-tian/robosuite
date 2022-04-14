@@ -363,6 +363,7 @@ class PushCenterMulti(SingleArmEnv):
             #size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
             #size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
             rgba=[1, 0, 0, 0],
+            friction=[0.7, 0.005, 0.0001],
             # solimp=[0.97, 0.990, 0.001, 0.5, 1],
             # solref=[0.02, 10],
             # solref=[-5000.0, -100.0],
@@ -385,7 +386,7 @@ class PushCenterMulti(SingleArmEnv):
         self.ball_object = BallObject(
             name="ball",
             size=[0.07],
-            friction=[0.5, 0.005, 0.0005],
+            friction=[0.5, 0.005, 0.0001],
             # density=((0.02 / 0.06) ** 3),
             density=1000,
             # density=0.5,
@@ -404,6 +405,7 @@ class PushCenterMulti(SingleArmEnv):
             # density=0.5,
             # size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
             # size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
+            friction=[0.7, 0.005, 0.0001],
             rgba=[1, 0, 0, 0],
             # solref=[-5000.0, -100.0],
             material=materials[2],
