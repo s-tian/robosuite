@@ -120,6 +120,8 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
                 plan_len = 12 if control_freq == 5 else 8
             gain = 7
             print(f'---- step num {step_num} -----')
+            action_noise = 0.05
+            # if 0 < step_num < 10:
             if 0 < step_num < 10:
                 current_object_position = obj_positions[-1][target_object][:2]
                 print('current object position', current_object_position)
@@ -129,7 +131,8 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
                 print('current arm position', current_arm_position)
                 bias[:2] = (target_arm_position - current_arm_position) * gain
                 print('bias', bias[:2])
-                action_queue = sample_actions(1, action_dim, bias, std=np.array([0.0, 0.0, 0.0, 0]))
+                # action_queue = sample_actions(1, action_dim, bias, std=np.array([0.0, 0.0, 0.0, 0]))
+                action_queue = sample_actions(1, action_dim, bias, std=np.array([action_noise, action_noise, action_noise, 0]))
                 action_queue = action_queue + np.random.randn(*action_queue.shape) * std
                 action_queue = np.clip(action_queue, low, high)
             elif step_num > 1:
@@ -141,7 +144,8 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
                 bias[:2] = (target_object_position - current_object_position) * 5
                 # bias[:2] = normalize((current_object_position - current_arm_position)) * 2
                 print('bias', bias[:2])
-                action_queue = sample_actions(1, action_dim, bias, std=np.array([0.00, 0.00, 0.0, 0]))
+                # action_queue = sample_actions(1, action_dim, bias, std=np.array([0.00, 0.00, 0.0, 0]))
+                action_queue = sample_actions(1, action_dim, bias, std=np.array([action_noise, action_noise, action_noise, 0]))
                 action_queue = action_queue + np.random.randn(*action_queue.shape) * std
                 action_queue = np.clip(action_queue, low, high)
             if 1 < step_num < 3 or 10 < step_num < 16:
@@ -150,9 +154,12 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
                 current_arm_position = env.env.get_gripper_pos()
                 if current_arm_position[2] > 0.83:
                     print(current_arm_position[2])
-                    action_queue[:, 2] = -1 + np.random.randn(1) * 0.005
-                    action_queue[:, 0] = np.random.randn(1) * 0.05
-                    action_queue[:, 1] = np.random.randn(1) * 0.05
+                    # action_queue[:, 2] = -1 + np.random.randn(1) * 0.005
+                    # action_queue[:, 0] = np.random.randn(1) * 0.05
+                    # action_queue[:, 1] = np.random.randn(1) * 0.05
+                    action_queue[:, 2] = -1 + np.random.randn(1) * action_noise
+                    action_queue[:, 0] = np.random.randn(1) * action_noise
+                    action_queue[:, 1] = np.random.randn(1) * action_noise
                 action_queue = np.clip(action_queue, low, high)
 
             action_queue = list(action_queue)
@@ -169,6 +176,7 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
         # img_observations.append(obs['agentview_image'][::-1])
         #env.render()
         obj_positions.append(env.get_object_positions())
+        print(obj_positions[-1])
 
         # Also break if we complete the task
         if task_completion_hold_count == 0:
@@ -205,7 +213,6 @@ def manual_inspection(img_observations):
 
 
 def filter_object_motion(obj_positions, target_object):
-    # we take up to the -1 index because the ball often moves really easily, and we want other object motion
     init_obj_positions = obj_positions[0]
     final_obj_positions = obj_positions[-1]
     # iterate over initial and final position for each object
@@ -332,6 +339,7 @@ if __name__ == "__main__":
     parser.add_argument("--control-freq", type=float, default=20)
     parser.add_argument("--pos-sensitivity", type=float, default=1.0, help="How much to scale position user inputs")
     parser.add_argument("--rot-sensitivity", type=float, default=1.0, help="How much to scale rotation user inputs")
+    parser.add_argument("--filter-object-motion", action='store_true', help="use filter obj motion")
     args = parser.parse_args()
 
     # Create argument configuration
@@ -396,11 +404,18 @@ if __name__ == "__main__":
     # collect demonstrations
     successful_trajectories = 0
     object_target = 0
+
+    if args.filter_object_motion:
+        filter = filter_object_motion
+    else:
+        # No filter, all trajectories are success
+        filter = lambda x, y: True
+
     while successful_trajectories < args.num_trajs:
-        take_trajectory = collect_random_trajectory(env, args.max_steps, args.arm, args.config, filter_object_motion, object_target)
+        take_trajectory = collect_random_trajectory(env, args.max_steps, args.arm, args.config, filter, object_target)
         if take_trajectory:
             successful_trajectories += 1
-            object_target = (object_target + 1) % 4
+            object_target = (object_target + 1) % len(env.get_object_positions())
         print(successful_trajectories)
         if successful_trajectories % 500 == 1 or successful_trajectories == args.num_trajs-1:
             gather_demonstrations_as_hdf5(tmp_directory, new_dir, env_info)

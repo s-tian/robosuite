@@ -6,7 +6,7 @@ from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects import BoxObject, CanObject, BallObject, CylinderObject, CapsuleObject
 from robosuite.models.tasks import ManipulationTask
-from robosuite.utils.mjcf_utils import CustomMaterial, ALL_TEXTURES
+from robosuite.utils.mjcf_utils import CustomMaterial, PUSHCENTER_TEXTURES, PUSHCENTER_TEST_TEXTURES, PUSHCENTER_WHITE_TEST_TEXTURES
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
 from robosuite.utils.transform_utils import convert_quat, mat2euler
@@ -147,6 +147,7 @@ class PushCenterMulti(SingleArmEnv):
         reward_scale=1.0,
         reward_shaping=False,
         reward_function='push_center',
+        textures='train',
         placement_initializer=None,
         has_renderer=False,
         has_offscreen_renderer=True,
@@ -174,6 +175,8 @@ class PushCenterMulti(SingleArmEnv):
         # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
+
+        self.textures = textures
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
@@ -281,9 +284,42 @@ class PushCenterMulti(SingleArmEnv):
             # if self.reward_shaping:
             if self.reward_scale is not None:
                 reward *= self.reward_scale / 2.0
+        elif self.is_pushing_task(self.reward_function):
+            object_index = [x in self.reward_function for x in ['large_box', 'small_box', 'cylinder', 'sphere']].index(True)
+            direction = [x in self.reward_function for x in ['left', 'right', 'front', 'back']].index(True)
+            if self._check_success():
+                reward = 2.0
+            elif self.reward_shaping:
+                object_id = self.sim.model.body_name2id(self.objects[object_index].root_body)
+                object_pos = self.sim.data.body_xpos[object_id]
+
+                if direction == 0: # left
+                    pushing_dist = np.linalg.norm(object_pos[0] - (-0.3))
+                elif direction == 1: # right
+                    pushing_dist = np.linalg.norm(object_pos[0] - (0.3))
+                elif direction == 2:  # front
+                    pushing_dist = np.linalg.norm(object_pos[1] - (0.3))
+                elif direction == 3:  # back
+                    pushing_dist = np.linalg.norm(object_pos[1] - (-0.3))
+                pushing_reward = 1 - np.tanh(10.0 * pushing_dist)
+                reward += pushing_reward
+
+                gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
+                dist = np.linalg.norm(object_pos - gripper_site_pos)
+                reaching_reward = 1 - np.tanh(10.0 * dist)
+                reward += reaching_reward
         else:
             raise NotImplementedError
         return reward
+
+    def is_pushing_task(self, reward_function):
+        if 'push' not in reward_function:
+            return False
+        if not any([x in reward_function for x in ['large_box', 'small_box', 'cylinder', 'sphere']]):
+            return False
+        if not any([x in reward_function for x in ['left', 'right', 'front', 'back']]):
+            return False
+        return True
 
     def get_object_positions(self):
         positions = []
@@ -332,7 +368,17 @@ class PushCenterMulti(SingleArmEnv):
 
         random_shininess = np.random.uniform()
 
-        texture_list = list(ALL_TEXTURES)
+        if self.textures == 'train':
+            texture_list = list(PUSHCENTER_TEXTURES.keys())
+        elif self.textures == 'test':
+            texture_list = list(PUSHCENTER_TEST_TEXTURES.keys())
+        elif self.textures == 'test_white':
+            texture_list = list(PUSHCENTER_WHITE_TEST_TEXTURES.keys())
+        else:
+            raise NotImplementedError(f'Texture type {self.textures} not found!')
+        print(f'Texture list is {self.textures}')
+        print(f'{texture_list}')
+
         materials = []
         for i in range(4):
             texture = None
@@ -549,3 +595,20 @@ class PushCenterMulti(SingleArmEnv):
             return object_distances.min() < 0.05
         elif self.reward_function == 'tip_cylinder':
             return self.get_cylinder_verticality() < 0.05
+        elif self.is_pushing_task(self.reward_function):
+            object_index = [x in self.reward_function for x in ['large_box', 'small_box', 'cylinder', 'sphere']].index(True)
+            direction = [x in self.reward_function for x in ['left', 'right', 'front', 'back']].index(True)
+            object_id = self.sim.model.body_name2id(self.objects[object_index].root_body)
+            object_pos = self.sim.data.body_xpos[object_id]
+
+            if direction == 0:  # left
+                pushing_dist = np.linalg.norm(object_pos[0] - (-0.3))
+            elif direction == 1:  # right
+                pushing_dist = np.linalg.norm(object_pos[0] - (0.3))
+            elif direction == 2:  # front
+                pushing_dist = np.linalg.norm(object_pos[1] - (0.3))
+            elif direction == 3:  # back
+                pushing_dist = np.linalg.norm(object_pos[1] - (-0.3))
+            return pushing_dist < 0.025
+        else:
+            raise NotImplementedError(f'Reward function {self.reward_function} not implemented!')

@@ -530,7 +530,8 @@ class MujocoGeneratedObject(MujocoObject):
             self.asset = ET.Element("asset")
         # If the material name is not in shared materials, add this to our assets
         if material.name not in self.shared_materials:
-            self.asset.append(ET.Element("texture", attrib=material.tex_attrib))
+            if len(material.tex_attrib) > 1:
+                self.asset.append(ET.Element("texture", attrib=material.tex_attrib))
             self.asset.append(ET.Element("material", attrib=material.mat_attrib))
         # Add this material name to shared materials if it should be shared
         if material.shared:

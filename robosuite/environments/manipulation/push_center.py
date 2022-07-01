@@ -6,7 +6,7 @@ from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects import BoxObject, CanObject, BallObject, CylinderObject, CapsuleObject
 from robosuite.models.tasks import ManipulationTask
-from robosuite.utils.mjcf_utils import CustomMaterial, ALL_TEXTURES
+from robosuite.utils.mjcf_utils import CustomMaterial, ALL_TEXTURES, MAGIC_TEXTURES
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
 from robosuite.utils.transform_utils import convert_quat
@@ -164,6 +164,10 @@ class PushCenter(SingleArmEnv):
         camera_segmentations=None,  # {None, instance, class, element}
         renderer="mujoco",
         renderer_config=None,
+        textures='train',
+        transparent=False,
+        textured_table=False,
+        reward_function=None,
     ):
         # settings for table top
         self.table_full_size = table_full_size
@@ -179,6 +183,9 @@ class PushCenter(SingleArmEnv):
 
         # object placement initializer
         self.placement_initializer = placement_initializer
+        self.textures = textures
+        self.transparent = transparent
+        self.textured_table = textured_table
 
         super().__init__(
             robots=robots,
@@ -261,6 +268,13 @@ class PushCenter(SingleArmEnv):
             reward *= self.reward_scale / 2.25
         return reward
 
+    def get_gripper_pos(self):
+        gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
+        return np.copy(gripper_site_pos)
+
+    def get_object_positions(self):
+        return [np.copy(self.sim.data.body_xpos[self.object_body_id][:3])]
+
     def _load_model(self):
         """
         Loads an xml model, puts it in self.model
@@ -272,11 +286,19 @@ class PushCenter(SingleArmEnv):
         self.robots[0].robot_model.set_base_xpos(xpos)
 
         # load model for table top workspace
-        mujoco_arena = TableArena(
-            table_full_size=self.table_full_size,
-            table_friction=self.table_friction,
-            table_offset=self.table_offset,
-        )
+        if self.textured_table:
+            mujoco_arena = TableArena(
+                table_full_size=self.table_full_size,
+                table_friction=self.table_friction,
+                table_offset=self.table_offset,
+                xml="arenas/table_arena_2.xml",
+            )
+        else:
+            mujoco_arena = TableArena(
+                table_full_size=self.table_full_size,
+                table_friction=self.table_friction,
+                table_offset=self.table_offset,
+            )
 
         # Arena always gets set to zero origin
         mujoco_arena.set_origin([0, 0, 0])
@@ -294,28 +316,75 @@ class PushCenter(SingleArmEnv):
             "shininess": f"{random_shininess}",
             "reflectance": f"{random_shininess}",
         }
-        texture_list = list(ALL_TEXTURES)
-        texture = None
-        while not texture or 'Cereal' in texture:
-            texture_rnd_idx = np.random.choice(len(texture_list))
-            texture = texture_list[texture_rnd_idx]
-        redwood = CustomMaterial(
-            texture=texture,
-            tex_name="block_tex",
-            mat_name="block_tex_mat",
-            tex_attrib=tex_attrib,
-            mat_attrib=mat_attrib,
-        )
-        self.object = BoxObject(
-            name="cube",
-            size=[0.06, 0.06, 0.06],
-            density=((0.02/0.06)**3),
-            #density=0.5,
-            #size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
-            #size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
-            rgba=[1, 0, 0, 0],
-            material=redwood,
-        )
+        if self.textures == 'train':
+            texture_list = list(ALL_TEXTURES)
+            texture = None
+            # while not texture or 'Cereal' in texture:
+            #     texture_rnd_idx = np.random.choice(len(texture_list))
+            #     texture = texture_list[texture_rnd_idx]
+            texture = texture_list[7]
+            redwood = CustomMaterial(
+                texture=texture,
+                tex_name="block_tex",
+                mat_name="block_tex_mat",
+                tex_attrib=tex_attrib,
+                mat_attrib=mat_attrib,
+            )
+        else:
+            # texture_list = list(MAGIC_TEXTURES)
+            # texture = texture_list[self.textures]
+            texture = self.textures
+            redwood = CustomMaterial(
+                texture=texture,
+                tex_name="block_tex",
+                mat_name="block_tex_mat",
+                tex_attrib=tex_attrib,
+                mat_attrib=mat_attrib,
+            )
+        if self.transparent:
+            rgb = np.random.rand(3)
+            alpha = np.random.rand(1) * 0.1 + 0.2
+            # alpha = np.random.rand(1) * 0.8
+            # alpha = [1]
+            # alpha = [0.3]
+            material = CustomMaterial(
+                texture=None,
+                tex_name="ball_tex",
+                mat_name="ball_tex_mat",
+                # tex_attrib={
+                #     # "type": "cube"
+                # },
+                mat_attrib={
+                    # "rgba": "0.917 0.941 0.941 0.3",
+                    "rgba": f"{rgb[0]} {rgb[1]} {rgb[2]} {alpha[0]}",
+                    "texrepeat": "1 1",
+                    "specular": "0.7",
+                    "shininess": "0.5",
+                    "reflectance": "0.5",
+                })
+            self.object = BoxObject(
+                name="cube",
+                size=[0.06, 0.06, 0.06],
+                density=1000,
+                # density=0.5,
+                # size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
+                # size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
+                # rgba=[1, 1, 1, 0.1],
+                friction=[0.7, 0.005, 0.0001],
+                material=material,
+            )
+        else:
+            self.object = BoxObject(
+                name="cube",
+                size=[0.06, 0.06, 0.06],
+                density=1000,
+                #density=0.5,
+                #size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
+                #size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
+                rgba=[1, 0, 0, 0],
+                friction=[0.7, 0.005, 0.0001],
+                material=redwood,
+            )
 
         # Create placement initializer
         if self.placement_initializer is not None:
@@ -327,8 +396,8 @@ class PushCenter(SingleArmEnv):
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
                 mujoco_objects=self.object,
-                x_range=[-0.10, 0.10],
-                y_range=[-0.10, 0.10],
+                x_range=[-0.1, 0.3],
+                y_range=[-0.15, 0.15],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,

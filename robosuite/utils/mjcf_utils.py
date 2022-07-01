@@ -138,6 +138,30 @@ TEXTURES = {
     'Chip': 'chip-smaller.png',
     'Fabric': 'fabric.png',
     'Fabric2': 'fabric2.png',
+
+    # Test textures
+    "Fabric053": 'Fabric053_1K_Color.png',
+    "Grass003": "Grass003_1K_Color.png",
+    'Gravel024': 'Gravel024_1K_Color.png',
+    'Metal038': 'Metal038_1K_Color.png',
+    'Plastic001': 'Plastic001_1K_Color.png',
+    'Road005': 'Road005_1K_Color.png',
+    'Terrazzo018': 'Terrazzo018_1K_Color.png',
+    'Tiles070': 'Tiles070_1K_Color.png',
+    'Wood069': 'Wood069_1K_Color.png',
+    'WoodSiding012': 'WoodSiding012_1K_Color.png',
+
+    # White test textures
+    "Fabric048": 'Fabric048_1K_Color.png',
+    'Carpet014': 'Carpet014_1K_Color.png',
+    'Leather025': 'Leather025_1K_Color.png',
+    'GlazedTerracotta003': 'GlazedTerracotta003_1K_Color.png',
+    'Marble021': 'Marble021_1K_Color.png',
+    'PaintedBricks004': 'PaintedBricks004_1K_Color.png',
+    'Tiles040': 'Tiles040_1K_Color.png',
+    'Porcelain001': 'Porcelain001_1K_Color.png',
+    'Tiles107': 'Tiles107_1K_Color.png',
+    'PaintedPlaster017': 'PaintedPlaster017_1K_Color.png'
 }
 
 PUSHCENTER_TEXTURES = {
@@ -156,7 +180,43 @@ PUSHCENTER_TEXTURES = {
     'Candy': 'candy.png',
 }
 
-ALL_TEXTURES = PUSHCENTER_TEXTURES.keys()
+PUSHCENTER_TEST_TEXTURES = {
+    "Fabric053": 'Fabric053_1K_Color.png',
+    "Grass003": "Grass003_1K_Color.png",
+    'Gravel024': 'Gravel024_1K_Color.png',
+    'Metal038': 'Metal038_1K_Color.png',
+    'Plastic001': 'Plastic001_1K_Color.png',
+    'Road005': 'Road005_1K_Color.png',
+    'Terrazzo018': 'Terrazzo018_1K_Color.png',
+    'Tiles070': 'Tiles070_1K_Color.png',
+    'Wood069': 'Wood069_1K_Color.png',
+    'WoodSiding012': 'WoodSiding012_1K_Color.png',
+}
+
+PUSHCENTER_WHITE_TEST_TEXTURES = {
+    "Fabric048": 'Fabric048_1K_Color.png',
+    'Carpet014': 'Carpet014_1K_Color.png',
+    'Leather025': 'Leather025_1K_Color.png',
+    'GlazedTerracotta003': 'GlazedTerracotta003_1K_Color.png',
+    'Marble021': 'Marble021_1K_Color.png',
+    'PaintedBricks004': 'PaintedBricks004_1K_Color.png',
+    'Tiles040': 'Tiles040_1K_Color.png',
+    'Porcelain001': 'Porcelain001_1K_Color.png',
+    'Tiles107': 'Tiles107_1K_Color.png',
+    'PaintedPlaster017': 'PaintedPlaster017_1K_Color.png'
+}
+
+MAGIC_TEXTURES = {
+    "WoodRed": "red-wood.png",
+    "WoodGreen": "green-wood.png",
+}
+
+
+ALL_TEXTURES = list(PUSHCENTER_TEXTURES.keys()) + \
+               list(PUSHCENTER_TEST_TEXTURES.keys()) + \
+               list(PUSHCENTER_WHITE_TEST_TEXTURES.keys()) + \
+               list(MAGIC_TEXTURES.keys())
+MAGIC_TEXTURES = list(MAGIC_TEXTURES.keys())
 
 
 class CustomMaterial(object):
@@ -223,9 +283,10 @@ class CustomMaterial(object):
         # Add in name values
         self.name = mat_name
         self.shared = shared
-        self.tex_attrib["name"] = tex_name
+        if texture is not None:
+            self.tex_attrib["name"] = tex_name
+            self.mat_attrib["texture"] = tex_name
         self.mat_attrib["name"] = mat_name
-        self.mat_attrib["texture"] = tex_name
 
         # Loop through all attributes and convert all non-string values into strings
         for attrib in (self.tex_attrib, self.mat_attrib):

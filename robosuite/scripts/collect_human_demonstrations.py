@@ -70,7 +70,7 @@ def collect_human_trajectory(env, device, arm, env_configuration):
         print(f'step {step}, {action}')
         # Run environment step
         env.step(action)
-        print(env.env.env.get_gripper_pos())
+        import ipdb; ipdb.set_trace()
         env.render()
 
         # Also break if we complete the task
@@ -227,6 +227,7 @@ if __name__ == "__main__":
         reward_shaping=True,
         reward_function='tip_cylinder',
         control_freq=5,
+        transparent=True,
     )
 
     # Wrap this with visualization wrapper

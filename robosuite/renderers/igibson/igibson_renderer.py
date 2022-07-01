@@ -71,7 +71,6 @@ def check_render2tensor(render2tensor, render_mode):
 
 
 def check_segmentation_type(segmentation_type):
-
     assert len(segmentation_type) == 1, ValueError(
         "Only one segmentation type can be used for all cameras. Set `camera_segmentations` to be"
         "either `class`, `instance` or `element`"
@@ -189,7 +188,7 @@ class iGibsonRenderer(Renderer):
         if True in self.env.camera_depths and "3d" not in self.modes:
             self.modes += ["3d"]
 
-        if self.segmentation_type is not None and "seg" not in self.modes:
+        if self.segmentation_type and "seg" not in self.modes:
             self.modes += ["seg"]
 
         # background_texture2 = os.path.join(suite.models.assets_root, "light_maps", "photo_studio_01_2k.hdr")
