@@ -327,6 +327,12 @@ class PushCenterMulti(SingleArmEnv):
             positions.append(np.copy(self.sim.data.body_xpos[obj_id][:3]))
         return positions
 
+    def get_object_oris(self):
+        positions = []
+        for obj_id in self.object_body_ids:
+            positions.append(np.copy(self.sim.data.body_xquat[obj_id][:4]))
+        return positions
+
     def get_gripper_pos(self):
         gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
         return np.copy(gripper_site_pos)
@@ -421,6 +427,7 @@ class PushCenterMulti(SingleArmEnv):
             size=[0.04, 0.04, 0.04],
             # density=((0.02/0.04)**3),
             density=1000,
+            friction=[0.7, 0.005, 0.0001],
             #density=0.5,
             #size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
             #size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
@@ -432,7 +439,7 @@ class PushCenterMulti(SingleArmEnv):
         self.ball_object = BallObject(
             name="ball",
             size=[0.07],
-            friction=[0.5, 0.005, 0.0001],
+            friction=[0.7, 0.005, 0.0001],
             # density=((0.02 / 0.06) ** 3),
             density=1000,
             # density=0.5,
