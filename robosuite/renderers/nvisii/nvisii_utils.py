@@ -51,7 +51,7 @@ def load_object(
 
     primitive_types = ["box", "cylinder"]
     component = None
-
+    print(geom_type)
     if geom_type == "box":
 
         component = nvisii.entity.create(
@@ -66,6 +66,15 @@ def load_object(
         component = nvisii.entity.create(
             name=geom_name,
             mesh=nvisii.mesh.create_capped_cylinder(name=geom_name, radius=geom_size[0], size=geom_size[1]),
+            transform=nvisii.transform.create(geom_name),
+            material=nvisii.material.create(geom_name),
+        )
+
+    elif geom_type == "sphere":
+
+        component = nvisii.entity.create(
+            name=geom_name,
+            mesh=nvisii.mesh.create_sphere(name=geom_name, radius=geom_size[0]),
             transform=nvisii.transform.create(geom_name),
             material=nvisii.material.create(geom_name),
         )
