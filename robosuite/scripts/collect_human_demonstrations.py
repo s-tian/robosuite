@@ -70,7 +70,6 @@ def collect_human_trajectory(env, device, arm, env_configuration):
         print(f'step {step}, {action}')
         # Run environment step
         env.step(action)
-        import ipdb; ipdb.set_trace()
         env.render()
 
         # Also break if we complete the task
@@ -87,7 +86,7 @@ def collect_human_trajectory(env, device, arm, env_configuration):
             task_completion_hold_count = -1  # null the counter if there's no success
 
     # cleanup for end of data collection episodes
-    take_trajectory = input('take_trajectory?').lower() == 'y'
+    take_trajectory = input('take_trajectory?').lower() == 'yes'
     if not take_trajectory:
         env.ep_directory = os.path.join("bad_trajs", "bad_traj")
     env.close()
@@ -197,6 +196,7 @@ if __name__ == "__main__":
         "--controller", type=str, default="OSC_POSE", help="Choice of controller. Can be 'IK_POSE' or 'OSC_POSE'"
     )
     parser.add_argument("--device", type=str, default="keyboard")
+    parser.add_argument("--out_dir", type=str, default="")
     parser.add_argument("--pos-sensitivity", type=float, default=1.0, help="How much to scale position user inputs")
     parser.add_argument("--rot-sensitivity", type=float, default=1.0, help="How much to scale rotation user inputs")
     parser.add_argument("--num-trajs", type=int, default=100)
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         reward_shaping=True,
         reward_function='tip_cylinder',
         control_freq=5,
-        transparent=True,
+        # transparent=True,
     )
 
     # Wrap this with visualization wrapper
@@ -256,8 +256,11 @@ if __name__ == "__main__":
         raise Exception("Invalid device choice: choose either 'keyboard' or 'spacemouse'.")
 
     # make a new timestamped directory
-    t1, t2 = str(time.time()).split(".")
-    new_dir = os.path.join(args.directory, "{}_{}".format(t1, t2))
+    if args.out_dir:
+        new_dir = os.path.join(args.directory, args.out_dir)
+    else:
+        t1, t2 = str(time.time()).split(".")
+        new_dir = os.path.join(args.directory, "{}_{}".format(t1, t2))
     os.makedirs(new_dir)
 
     # collect demonstrations

@@ -83,39 +83,10 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
     action_dim = env.action_dim
     low, high = env.action_spec
 
+
     obj_positions = [env.get_object_positions()]
-
-    # target_object = np.random.randint(0, 4)
-    print(f'target object {target_object}')
-    # Generate a random vector uniformly on the half circle with positive x values
-    angle = np.random.rand() * np.pi
-    direction_vector = np.array([np.sin(angle), np.cos(angle)])
-    # direction_vector[0] = np.abs(direction_vector[0])
-    direction_vector = direction_vector / np.linalg.norm(direction_vector)
-    target_object_position = obj_positions[-1][target_object][:2] + 0.3 * direction_vector
-    target_object_position = clamp_to_bounds(target_object_position)
-    num_times_checked = 1
-    # while not within_bounds(target_object_position):
-    #     if num_times_checked > 50:
-    #         target_object = np.random.randint(0, 4)
-    #         direction_vector = np.random.rand(2)
-    #         direction_vector[0] = np.abs(direction_vector[0])
-    #         direction_vector = direction_vector / np.linalg.norm(direction_vector)
-    #         target_object_position = obj_positions[-1][target_object][:2] + 0 * direction_vector
-    #         break
-    #     else:
-    #         num_times_checked += 1
-    #         target_object = np.random.randint(0, 4)
-    #         direction_vector = np.random.rand(2)
-    #         direction_vector[0] = np.abs(direction_vector[0])
-    #         direction_vector = direction_vector / np.linalg.norm(direction_vector)
-    #         target_object_position = obj_positions[-1][target_object][:2] + 0.3 * direction_vector
     initial_location = obj_positions[-1][target_object][:2]
-    print(f'initial location {obj_positions[-1][target_object][:2]}')
-    print(f'target location {target_object_position}')
-
     action_queue = []
-    img_observations = []
 
     while step_num < max_steps:
         step_num += 1
@@ -124,69 +95,32 @@ def collect_random_trajectory(env, max_steps, arm, env_configuration, filter_con
 
         # Get the newest action
         if len(action_queue) == 0:
+            print(step_num)
             bias = np.zeros(action_dim)
-            control_freq = env.env.control_freq
+            # if step_num == 1:
+            #     bias[2] = -0.5
+            print(bias)
+            std = np.array([1, 1, 0.2, 1])
             if step_num == 1:
-                plan_len = 6 if control_freq == 5 else 3
+                plan_len = 6
             else:
-                plan_len = 12 if control_freq == 5 else 8
-            gain = 5.0
-            action_noise = 0.05
-            print(f'---- step num {step_num} -----')
-            # if 0 < step_num < 10:
-            if 0 < step_num < 10:
-                current_object_position = obj_positions[-1][target_object][:2]
-                print('current object position', current_object_position)
-                target_arm_position = current_object_position + 0.22 * normalize(current_object_position - target_object_position)
-                print('target arm position', target_arm_position)
-                current_arm_position = env.env.get_gripper_pos()[:2]
-                print('current arm position', current_arm_position)
-                bias[:2] = (target_arm_position - current_arm_position) * gain
-                print('current arm to target arm vector', bias[:2])
-                # action_queue = sample_actions(1, action_dim, bias, std=np.array([0.0, 0.0, 0.0, 0]))
-                action_queue = sample_actions(1, action_dim, bias, std=np.array([action_noise, action_noise, action_noise, 0]))
-                # action_queue = action_queue + np.random.randn(*action_queue.shape) * std
-                action_queue = np.clip(action_queue, low, high)
-            elif step_num > 1:
-                current_arm_position = env.env.get_gripper_pos()[:2]
-                print('current arm position', current_arm_position)
-                current_object_position = obj_positions[-1][target_object][:2]
-                print('current object position', current_object_position)
-                print('target object position', target_object_position)
-                if within_bounds(current_arm_position):
-                    bias[:2] = (target_object_position - current_object_position) * 3
-                # bias[:2] = normalize((current_object_position - current_arm_position)) * 2
-                print('current object to target object vector', bias[:2])
-                # action_queue = sample_actions(1, action_dim, bias, std=np.array([0.00, 0.00, 0.0, 0]))
-                action_queue = sample_actions(1, action_dim, bias, std=np.array([action_noise, action_noise, action_noise, 0]))
-                # action_queue = action_queue + np.random.randn(*action_queue.shape) * std
-                action_queue = np.clip(action_queue, low, high)
-            if 1 < step_num < 3 or 10 < step_num < 16:
-                # action_queue = sample_actions(plan_len, action_dim, bias, std=std)
-                # print(action_queue)
-                current_arm_position = env.env.get_gripper_pos()
-                if current_arm_position[2] > 0.85:
-                    print(current_arm_position[2])
-                    # action_queue[:, 2] = -1 + np.random.randn(1) * 0.005
-                    # action_queue[:, 0] = np.random.randn(1) * 0.05
-                    # action_queue[:, 1] = np.random.randn(1) * 0.05
-                    action_queue[:, 2] = -0.75 + np.random.randn(1) * action_noise
-                    action_queue[:, 0] = np.random.randn(1) * action_noise
-                    action_queue[:, 1] = np.random.randn(1) * action_noise
-                action_queue = np.clip(action_queue, low, high)
-
+                plan_len = 12
+            action_queue = sample_actions(plan_len, action_dim, bias, std=std)
+            action_queue = np.clip(action_queue, low, high)
+            if step_num == 1:
+                action_queue[:, 2] = -0.7
             action_queue = list(action_queue)
 
         action = action_queue.pop(0)
-        action = clamp_actions_to_bounds(env.env.get_gripper_pos(), action)
-        print(f'Taking action {action}!')
-        
+        print(action)
+
         # If action is none, then this a reset so we should break
         if action is None:
             break
 
         # Run environment step
-        obs, rew, _, _ = env.step(action)
+        env.step(action)
+        # env.render()
         # img_observations.append(obs['agentview_image'][::-1])
         #env.render()
         obj_positions.append(env.get_object_positions())
@@ -403,7 +337,7 @@ if __name__ == "__main__":
     # Grab reference to controller config and convert it to json-encoded string
 
     # wrap the environment with data collection wrapper
-    tmp_directory = "/viscam/u/stian/tmp/{}".format(str(time.time()).replace(".", "_"))
+    tmp_directory = "/viscam/projects/perceptual-metrics/tmp/{}".format(str(time.time()).replace(".", "_"))
     env = DataCollectionWrapper(env, tmp_directory)
 
     # make a new timestamped directory
