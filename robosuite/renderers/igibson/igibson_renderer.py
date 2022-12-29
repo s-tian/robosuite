@@ -197,7 +197,7 @@ class iGibsonRenderer(Renderer):
         # background_texture = os.path.join(igibson.ig_dataset_path, "scenes", "background", "urban_street_01.jpg")
         # background_texture = os.path.join(igibson.ig_dataset_path, "scenes", "background", "cannon_4k.hdr")
         #background_texture = os.path.join(igibson.ig_dataset_path, "scenes", "background", "studio_small_09_4k_cropped.hdr")
-        background_texture = os.path.join(robosuite.models.assets_root, "studio_small_09_4k_cropped.hdr")
+        background_texture = os.path.join(suite.models.assets_root, "light_maps", "studio_small_09_4k_cropped.hdr")
 
         self.mrs = MeshRendererSettings(
             msaa=msaa,
